@@ -157,6 +157,14 @@ bash -- <(
 
 And than review [README.md](./skeleton/README.md) file in the generated directory.
 
+## Standalones
+
+TODO
+
+```sh
+curl -fsSL https://github.com/spaghetti-coder/ansible-basebook/raw/master/roles/envar/files/envar.sh | sudo bash -s -- install
+```
+
 [To top]
 
 [To top]: #top

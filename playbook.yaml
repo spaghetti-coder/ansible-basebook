@@ -19,5 +19,9 @@
       tags: [editors]
       when: editors_managed | default(false)
 
+    - role: envar
+      tags: [envar]
+      when: envar_managed | default(false)
+
     - role: upgrade
       tags: [upgrade, upgradable, never]

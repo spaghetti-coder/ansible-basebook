@@ -46,3 +46,12 @@ docker_users: []
 #   - vim
 editors_managed: false
 editors_exclude: []
+
+###
+### ENVAR
+###
+# envar_users:  # <- Users that will access to envar
+#   - "{{ ansible_user | default(ansible_user_id) }}"
+#   - root
+envar_managed: false
+envar_users: []
