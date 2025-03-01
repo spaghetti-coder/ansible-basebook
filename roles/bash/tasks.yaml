@@ -1,0 +1,9 @@
+---
+- name: Install
+  ansible.builtin.package:
+    name: "{{ ['bash'] + (bash_completion | ternary(['bash-completion'], [])) }}"
+  become: true
+
+- name: Mark done
+  ansible.builtin.set_fact:
+    _bash_done: true

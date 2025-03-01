@@ -1,0 +1,20 @@
+---
+- name: Envar
+  ansible.builtin.include_role:
+    name: envar
+  vars:
+    envar_users: "{{ ps1_git_users_left }}"
+
+- name: Install
+  ansible.builtin.copy:
+    src: ps1-git.sh
+    dest: "{{ ps1_git_path }}"
+    mode: '0644'
+  become: true
+
+- name: Setup user
+  ansible.builtin.include_tasks:
+    file: setup-user.yaml
+  loop: "{{ ps1_git_users_left }}"
+  loop_control:
+    loop_var: user

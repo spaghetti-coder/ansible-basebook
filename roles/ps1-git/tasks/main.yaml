@@ -1,0 +1,15 @@
+---
+- name: Load tasks
+  vars:
+    ps1_git_users_left: "{{ ps1_git_users | difference(_ps1_git_users_done | default([])) }}"
+    ps1_git_path: "{{ envar_etc_dir }}/ps1-git.skip.sh"
+    ps1_git_user_link: "{{ envar_user_dir }}/500-ps1-git.sh"
+  when: |
+    not (_ps1_git_done | default(false))
+    or (ps1_git_users_left | length) > 0
+  ansible.builtin.include_tasks:
+    file: tasks.yaml
+
+- name: Mark done
+  ansible.builtin.set_fact:
+    _ps1_git_done: true
