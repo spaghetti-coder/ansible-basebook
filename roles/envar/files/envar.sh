@@ -170,6 +170,7 @@ _envar_lib() (
         "  https://github.com/spaghetti-coder/ansible-basebook" \
         "Skipping ..." \
       >&2
+      echo "unchanged"
       return
     }
 
