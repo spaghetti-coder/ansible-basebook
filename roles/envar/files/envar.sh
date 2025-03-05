@@ -4,36 +4,101 @@
 _envar_lib() (
   local THE_LIB="${FUNCNAME[0]}"
   local THE_TOOL=envar
+  local BIN_FILE="/opt/varlog/${THE_TOOL}/bin/${THE_TOOL}.sh"
+
+  [ -n "${ENVAR_CONTEXT_SCRIPT+x}" ] || {
+    echo "Direct '${THE_LIB}' usage is not allowed, use '${THE_TOOL}'" >&2
+    return 1
+  }
 
   local GLOBAL_DIR="/etc/${THE_TOOL}"
   local USER_DIR_SUFFIX=".${THE_TOOL}.d"
-  local BIN_FILE="/opt/spaghetti/${THE_TOOL}/bin/${THE_TOOL}.sh"
   local IGNORE_GLOBAL_FILE="${USER_DIR_SUFFIX}/_global.skip.sh"
   local IGNORE_SUFFIX_FILE="${USER_DIR_SUFFIX}/_suffix.skip.sh"
   local DEMO_FILE="${GLOBAL_DIR}/demo.skip.sh"
   local DEMO_DESK_FILE="${GLOBAL_DIR}/demo-desk.skip.sh"
 
-  # Special marker for gen_* functions that allows skipping some code
-  # blocks when running outside of envar function context.
-  # Ensure unique var name
-  local ENVAR_CONTEXT_SELFSCRIPT_P7sQvK8JJrpXoD3PahoR=true
+  # TODO: Custom BIN_FILE, global and per user to allow individual installs
+  # using /etc/envar/.bin-file and ~/.envar.d/.bin-file
+
+  #
+  # Tool functions
+  #
 
   req()     { printf -- '%s' "${ENVAR_REQ}${ENVAR_REQ:+$'\n'}"; }
   loaded()  { printf -- '%s' "${ENVAR_LOADED}${ENVAR_LOADED:+$'\n'}"; }
   desks()   { printf -- '%s' "${ENVAR_DESKS}${ENVAR_DESKS:+$'\n'}"; }
 
+  #
+  # Setup functions
+  #
+
+  # TODO: rename to install_self
+  install() {
+    [ "$(id -u)" -eq 0 ] || {
+      echo "Installation requires root privileges" >&2
+      return 1
+    }
+
+    local changed=false
+
+    if true \
+      && ${ENVAR_CONTEXT_SCRIPT:-false} \
+      && ! [ "$(realpath -- "${0}" 2>/dev/null)" = "${BIN_FILE}" ] \
+      && ! cmp -- <(make_bin_file_code) <(
+        unset -f "${THE_LIB}" "${THE_TOOL}" &>/dev/null
+        # shellcheck disable=SC1090
+        . "${BIN_FILE}" &>/dev/null
+
+        make_bin_file_code
+      ) &>/dev/null \
+    ; then
+      # Not `envar install` or `${BIN_FILE} install`
+
+      local install_dir; install_dir="$(dirname -- "${BIN_FILE}")" || return
+      (set -x; umask 0022; mkdir -p -- "${install_dir}") || return
+
+      make_bin_file_code | (
+        set -x
+        tee -- "${BIN_FILE}" >/dev/null && chmod 0755 -- "${BIN_FILE}"
+      ) || return
+
+      changed=true
+    fi
+
+    if ! { true \
+      && cmp -- <(print_demo) "${DEMO_FILE}" \
+      && cmp -- <(print_demo_desk) "${DEMO_DESK_FILE}"
+    } &>/dev/null ; then
+      # shellcheck disable=SC2031
+      (set -x; umask 0022; mkdir -p -- "${GLOBAL_DIR}") || return
+      print_demo | (set -x; umask 0022; tee -- "${DEMO_FILE}" >/dev/null) || return
+      print_demo_desk | (set -x; umask 0022; tee -- "${DEMO_DESK_FILE}" >/dev/null) || return
+
+      changed=true
+    fi
+
+    if ${changed}; then echo "Done"; else echo "Unchanged"; fi
+  }
+
+  # TODO: rename to user_setup
   init() {
     local user="${1:-$(id -u -n)}"
     local changed=false
 
     user="$(id -u -n -- "${user}")" || return
+    # TODO: check user has home dir and valid login shell
 
-    need_install && {
-      echo "Installation or update required. Attempting ..." >&2
-
+    [ "$(id -u)" -eq 0 ] && {
       local result; result="$(install)" || return
-      [ "${result}" = 'done' ] && changed=true
+      [ "${result,,}" = 'done' ] && changed=true
     }
+
+    # TODO: check if ${BIN_FILE} exists
+    # TODO: if running from not `envar init` or `${BIN_FILE} init`
+    #       fail when code is different
+    # TODO: source with `declare -F envar || . /opt/...`
+    # TODO: support for `-g` flag to init to bashrc in /etc
 
     if [ "$(id -u -n -- "${user}")" = "$(id -u -n)" ]; then
       if ! /usr/bin/env bash -i -c "
@@ -93,60 +158,35 @@ _envar_lib() (
         su -l "${user}" -s /bin/bash -c "$(declare -f); ${THE_LIB} ${FUNCNAME[0]}"
       )" || return
 
-      [ "${result}" = 'done' ] && changed=true
+      [ "${result,,}" = 'done' ] && changed=true
     else
       echo "Can't init for '${user}' without root privileges" >&2
       return 1
     fi
 
-    if ${changed}; then
-      echo "done"
-    else
-      echo "unchanged"
-    fi
+    if ${changed}; then echo "Done"; else echo "unchanged"; fi
   }
 
-  install() {
-    local can_install_9eJxoPVOVB=true
+  #
+  # Service functions
+  #
 
-    ${can_install_9eJxoPVOVB-false} || {
-      printf -- '%s\n' \
-        "Can only install / upgrade with installation script. Last time saw it here:" \
-        "  https://github.com/spaghetti-coder/ansible-basebook" \
-        "Skipping ..." \
-      >&2
-      echo "unchanged"
+  gen_init() {
+    ${ENVAR_CONTEXT_SCRIPT:-false} && {
+      declare -f "${FUNCNAME[0]}" | sed -e '/{/,$!d' -e '1s/.*{/{/'
       return
     }
 
-    [ "$(id -u)" -eq 0 ] || {
-      echo "Installation requires root privileges" >&2
-      return 1
-    }
-
-    need_install || { echo "unchanged"; return; }
-
-    local install_dir; install_dir="$(dirname -- "${BIN_FILE}")"
-    (set -x; umask 0022; mkdir -p -- "${install_dir}") || return
-
-    make_bin_file_code | (
-      set -x
-      tee -- "${BIN_FILE}" >/dev/null && chmod 0755 -- "${BIN_FILE}"
-    ) || return
-
-    # shellcheck disable=SC2031
-    (set -x; umask 0022; mkdir -p -- "${GLOBAL_DIR}") || return
-
-    print_demo | (set -x; umask 0022; tee -- "${DEMO_FILE}" >/dev/null) || return
-    print_demo_desk | (set -x; umask 0022; tee -- "${DEMO_DESK_FILE}" >/dev/null) || return
-
-    echo "done"
+    if (return 0 2>/dev/null); then
+      eval "$(ENVAR_CONTEXT_SCRIPT=true envar gen-loader)"
+    else
+      ENVAR_CONTEXT_SCRIPT=true envar "${@}"
+    fi
   }
 
   gen_loader() {
-    ${ENVAR_CONTEXT_SELFSCRIPT_P7sQvK8JJrpXoD3PahoR:-false} && {
-      declare -f "${FUNCNAME[0]}" \
-      | tail -n +2 `# <- Remove function haeder` \
+    ${ENVAR_CONTEXT_SCRIPT:-false} && {
+      declare -f "${FUNCNAME[0]}" | sed -e '/{/,$!d' -e '1s/.*{/{/' `# <- Extract function body` \
       | sed -e 's#{{\s*GLOBAL_DIR\s*}}#'"${GLOBAL_DIR}"'#g' \
             -e 's#{{\s*USER_DIR_SUFFIX\s*}}#'"${USER_DIR_SUFFIX}"'#g' \
             -e 's#{{\s*IGNORE_GLOBAL_FILE\s*}}#'"${IGNORE_GLOBAL_FILE}"'#g' \
@@ -178,6 +218,8 @@ _envar_lib() (
         fi
       }
     )"
+
+    # TODO: skip unreadable /etc/envar/*.sh, but warning on unreadable ~/.envar.d/*.sh
 
     # Load environments
     [ -n "${ENVAR_FILES}" ] && while read -r _envar_file; do
@@ -213,7 +255,7 @@ _envar_lib() (
 
     # Set PS1
     ENVAR_PS1_ORIGIN="${ENVAR_PS1_ORIGIN-${PS1}}"
-    [ -n "${ENVAR_DESK}" ] && PS1="$(
+    [ -z "${ENVAR_DESK}" ] || PS1="$(
       # shellcheck disable=SC2030
       IGNORE_SUFFIX_FILE='{{ IGNORE_SUFFIX_FILE }}'
 
@@ -243,44 +285,9 @@ _envar_lib() (
     )"
   }
 
-  # shellcheck disable=SC2120
-  gen_entrypoint() {
-    ${ENVAR_CONTEXT_SELFSCRIPT_P7sQvK8JJrpXoD3PahoR:-false} && {
-      declare -f "${FUNCNAME[0]}" | tail -n +2
-      return
-    }
-
-    if (return 0 2>/dev/null); then
-      eval "$(envar gen_loader)"
-    else
-      envar "${@}"
-    fi
-  }
-
-  # shellcheck disable=SC2016
-  make_bin_file_code() {
-    echo '#!/usr/bin/env bash'; echo
-    declare -f -- "${THE_LIB}" | sed '/can_install_9eJxoPVOVB[=]/d'; echo
-    declare -f -- "${THE_TOOL}"; echo
-    echo 'eval "$('"${THE_TOOL}"' gen_entrypoint)"'
-  }
-
-  need_install() {
-    # Compare to be installed code with current reflection, due to aliases
-    # changing the internal representation of function (i.e. 'grep' => 'grep --color=auto')
-
-    # shellcheck disable=SC2016,SC1090
-    ! {
-      make_bin_file_code | cmp -- - <(
-        unset -f "${THE_LIB}" "${THE_TOOL}" &>/dev/null
-        . "${BIN_FILE}" &>/dev/null
-
-        make_bin_file_code
-      ) \
-      && cmp -- <(print_demo) "${DEMO_FILE}" \
-      && cmp -- <(print_demo_desk) "${DEMO_DESK_FILE}"
-    } &>/dev/null
-  }
+  #
+  # Info functions
+  #
 
   print_help() {
     local the_script="${0}"
@@ -361,33 +368,55 @@ _envar_lib() (
     '
   }
 
+  #
+  # Helper functions
+  #
+
+  # shellcheck disable=SC2016
+  make_bin_file_code() {
+    echo '#!/usr/bin/env bash'; echo
+    declare -f -- "${THE_LIB}"; echo
+    declare -f -- "${THE_TOOL}"; echo
+    echo 'eval "$(ENVAR_CONTEXT_SCRIPT=true '"${THE_TOOL}"' gen-init)"'
+  }
+
   "${@}"
 )
 
 envar() {
   local arg="${1}"; shift
-
   local the_lib=_envar_lib
-  declare -a IMPORTED=(
-    # Action functions
-    loaded
-    desks
-    req
-    # Service functions
-    gen_entrypoint
-    gen_loader
+
+  # TODO: check _envar_lib available
+
+  # Special marker allows running code depending on whether it's in envar.sh
+  # script or 'envar' function context. Ensure unique var name
+  local ENVAR_CONTEXT_SCRIPT="${ENVAR_CONTEXT_SCRIPT:-false}"
+
+  declare -A IMPORT_MAP=( # [COMMAND]=LIB_FUNCTION
     # Setup functions
-    install
-    init
+    [install]=install
+    [init]=init
+    # Service functions
+    [gen-init]=gen_init
+    [gen-loader]=gen_loader
+    # Tool functions
+    [loaded]=loaded
+    [desks]=desks
+    [req]=req
   )
+
+  # TODO: limit tool functions to `envar` function only
 
   if [[ "${arg}" =~ ^(-\?|-h|--help)$ ]]; then
     "${the_lib}" print_help; return
   fi
 
-  printf -- '%s\n' "${IMPORTED[@]}" | grep -qFx -- "${arg}" && {
-    "${the_lib}" "${arg}" "${@}"; return
+  printf -- '%s\n' "${!IMPORT_MAP[@]}" | grep -qFx -- "${arg}" && {
+    "${the_lib}" "${IMPORT_MAP[${arg}]}" "${@}"; return
   }
+
+  # TODO: review all cat usages, maybe replace with [ -r ... ] where it's a check
 
   if true \
       && grep -q -- '\.\(sh\|env\)$' <<< "${arg}" \
@@ -402,4 +431,4 @@ envar() {
   return 1
 }
 
-eval "$(envar gen_entrypoint)"
+eval "$(ENVAR_CONTEXT_SCRIPT=true envar gen-init)"
