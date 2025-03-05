@@ -14,7 +14,7 @@ _envar_lib() (
   local DEMO_DESK_FILE="${GLOBAL_DIR}/demo-desk.skip.sh"
 
   # Special marker for gen_* functions that allows skipping some code
-  # blocks when running outside of envar function
+  # blocks when running outside of envar function context
   local RUN_CONTEXT_ENVAR_zWilsdFI8I=true  # <- Ensure some unique var name
 
   req()     { printf -- '%s' "${ENVAR_REQ}${ENVAR_REQ:+$'\n'}"; }
