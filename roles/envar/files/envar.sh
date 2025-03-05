@@ -14,15 +14,137 @@ _envar_lib() (
   local DEMO_DESK_FILE="${GLOBAL_DIR}/demo-desk.skip.sh"
 
   # Special marker for gen_* functions that allows skipping some code
-  # blocks when running outside of envar function context
-  local RUN_CONTEXT_ENVAR_zWilsdFI8I=true  # <- Ensure some unique var name
+  # blocks when running outside of envar function context.
+  # Ensure unique var name
+  local ENVAR_CONTEXT_SELFSCRIPT_P7sQvK8JJrpXoD3PahoR=true
 
   req()     { printf -- '%s' "${ENVAR_REQ}${ENVAR_REQ:+$'\n'}"; }
   loaded()  { printf -- '%s' "${ENVAR_LOADED}${ENVAR_LOADED:+$'\n'}"; }
   desks()   { printf -- '%s' "${ENVAR_DESKS}${ENVAR_DESKS:+$'\n'}"; }
 
+  init() {
+    local user="${1:-$(id -u -n)}"
+    local changed=false
+
+    user="$(id -u -n -- "${user}")" || return
+
+    need_install && {
+      echo "Installation or update required. Attempting ..." >&2
+
+      local result; result="$(install)" || return
+      [ "${result}" = 'done' ] && changed=true
+    }
+
+    if [ "$(id -u -n -- "${user}")" = "$(id -u -n)" ]; then
+      if ! /usr/bin/env bash -i -c "
+        unset -f -- '${THE_TOOL}'
+        . ~/.bashrc; declare -F -- '${THE_TOOL}'
+      " &>/dev/null; then
+        {
+          grep -q '.\+' ~/.bashrc 2>/dev/null && echo
+          printf -- '%s\n' ". '${BIN_FILE}'"
+        } | (
+          set -x; umask 0077; tee -a ~/.bashrc >/dev/null
+        ) || return
+
+        changed=true
+      fi
+
+      if { cat ~/.bash_profile || ! cat ~/.profile; } &>/dev/null; then
+        # .profile doesn't get loaded when .bash_profile exists
+
+        if ! /usr/bin/env bash -i -c "
+          unset -f -- '${THE_TOOL}'
+          . ~/.bash_profile; declare -F -- '${THE_TOOL}'
+        " &>/dev/null; then
+          {
+            grep -q '.\+' ~/.bash_profile 2>/dev/null && echo
+            printf -- '%s\n' \
+              'if [ -f ~/.bashrc ]; then' \
+              '  . ~/.bashrc' \
+              'fi'
+          } | (
+            set -x; umask 0077; tee -a ~/.bash_profile >/dev/null
+          ) || return
+
+          changed=true
+        fi
+      elif ! /usr/bin/env bash -i -c "
+        unset -f -- '${THE_TOOL}'
+        . ~/.profile; declare -F -- '${THE_TOOL}'
+      " &>/dev/null; then
+        {
+          grep -q '.\+' ~/.profile 2>/dev/null && echo
+          # shellcheck disable=SC2016
+          printf -- '%s\n' \
+            'if [ -n "$BASH_VERSION" ]; then' \
+            '  if [ -f ~/.bashrc ]; then' \
+            '    . ~/.bashrc' \
+            '  fi' \
+            'fi'
+        } | (
+          set -x; umask 0077; tee -a ~/.profile >/dev/null
+        ) || return
+
+        changed=true
+      fi
+    elif [[ $(id -u) -eq 0 ]]; then
+      local result; result="$(
+        su -l "${user}" -s /bin/bash -c "$(declare -f); ${THE_LIB} ${FUNCNAME[0]}"
+      )" || return
+
+      [ "${result}" = 'done' ] && changed=true
+    else
+      echo "Can't init for '${user}' without root privileges" >&2
+      return 1
+    fi
+
+    if ${changed}; then
+      echo "done"
+    else
+      echo "unchanged"
+    fi
+  }
+
+  install() {
+    local can_install_9eJxoPVOVB=true
+
+    ${can_install_9eJxoPVOVB-false} || {
+      printf -- '%s\n' \
+        "Can only install / upgrade with installation script. Last time saw it here:" \
+        "  https://github.com/spaghetti-coder/ansible-basebook" \
+        "Skipping ..." \
+      >&2
+      echo "unchanged"
+      return
+    }
+
+    [ "$(id -u)" -eq 0 ] || {
+      echo "Installation requires root privileges" >&2
+      return 1
+    }
+
+    need_install || { echo "unchanged"; return; }
+
+    local install_dir; install_dir="$(dirname -- "${BIN_FILE}")"
+    (set -x; umask 0022; mkdir -p -- "${install_dir}") || return
+
+    make_bin_file_code | (
+      set -x
+      tee -- "${BIN_FILE}" >/dev/null && chmod 0755 -- "${BIN_FILE}"
+    ) || return
+
+    # shellcheck disable=SC2031
+    (set -x; umask 0022; mkdir -p -- "${GLOBAL_DIR}") || return
+
+    print_demo | (set -x; umask 0022; tee -- "${DEMO_FILE}" >/dev/null) || return
+    print_demo_desk | (set -x; umask 0022; tee -- "${DEMO_DESK_FILE}" >/dev/null) || return
+
+    echo "done"
+  }
+
   gen_loader() {
-    ${RUN_CONTEXT_ENVAR_zWilsdFI8I:-false} && {
+    ${ENVAR_CONTEXT_SELFSCRIPT_P7sQvK8JJrpXoD3PahoR:-false} && {
       declare -f "${FUNCNAME[0]}" \
       | tail -n +2 `# <- Remove function haeder` \
       | sed -e 's#{{\s*GLOBAL_DIR\s*}}#'"${GLOBAL_DIR}"'#g' \
@@ -123,7 +245,7 @@ _envar_lib() (
 
   # shellcheck disable=SC2120
   gen_entrypoint() {
-    ${RUN_CONTEXT_ENVAR_zWilsdFI8I:-false} && {
+    ${ENVAR_CONTEXT_SELFSCRIPT_P7sQvK8JJrpXoD3PahoR:-false} && {
       declare -f "${FUNCNAME[0]}" | tail -n +2
       return
     }
@@ -158,43 +280,6 @@ _envar_lib() (
       && cmp -- <(print_demo) "${DEMO_FILE}" \
       && cmp -- <(print_demo_desk) "${DEMO_DESK_FILE}"
     } &>/dev/null
-  }
-
-  install() {
-    local can_install_9eJxoPVOVB=true
-
-    ${can_install_9eJxoPVOVB-false} || {
-      printf -- '%s\n' \
-        "Can only install / upgrade with installation script. Last time saw it here:" \
-        "  https://github.com/spaghetti-coder/ansible-basebook" \
-        "Skipping ..." \
-      >&2
-      echo "unchanged"
-      return
-    }
-
-    [ "$(id -u)" -eq 0 ] || {
-      echo "Installation requires root privileges" >&2
-      return 1
-    }
-
-    need_install || { echo "unchanged"; return; }
-
-    local install_dir; install_dir="$(dirname -- "${BIN_FILE}")"
-    (set -x; umask 0022; mkdir -p -- "${install_dir}") || return
-
-    make_bin_file_code | (
-      set -x
-      tee -- "${BIN_FILE}" >/dev/null && chmod 0755 -- "${BIN_FILE}"
-    ) || return
-
-    # shellcheck disable=SC2031
-    (set -x; umask 0022; mkdir -p -- "${GLOBAL_DIR}") || return
-
-    print_demo | (set -x; umask 0022; tee -- "${DEMO_FILE}" >/dev/null) || return
-    print_demo_desk | (set -x; umask 0022; tee -- "${DEMO_DESK_FILE}" >/dev/null) || return
-
-    echo "done"
   }
 
   print_help() {
@@ -274,90 +359,6 @@ _envar_lib() (
       # envar_suffix() { echo "my-desk > "; }   # <- Custom PS1 suffix
       # envar_suffix() { return; }              # <- Dont'\'' PS1 suffix the desk
     '
-  }
-
-  init() {
-    local user="${1:-$(id -u -n)}"
-    local changed=false
-
-    user="$(id -u -n -- "${user}")" || return
-
-    need_install && {
-      echo "Installation or update required. Attempting ..." >&2
-
-      local result; result="$(install)" || return
-      [ "${result}" = 'done' ] && changed=true
-    }
-
-    if [ "$(id -u -n -- "${user}")" = "$(id -u -n)" ]; then
-      if ! /usr/bin/env bash -i -c "
-        unset -f -- '${THE_TOOL}'
-        . ~/.bashrc; declare -F -- '${THE_TOOL}'
-      " &>/dev/null; then
-        {
-          grep -q '.\+' ~/.bashrc 2>/dev/null && echo
-          printf -- '%s\n' ". '${BIN_FILE}'"
-        } | (
-          set -x; umask 0077; tee -a ~/.bashrc >/dev/null
-        ) || return
-
-        changed=true
-      fi
-
-      if { cat ~/.bash_profile || ! cat ~/.profile; } &>/dev/null; then
-        # .profile doesn't get loaded when .bash_profile exists
-
-        if ! /usr/bin/env bash -i -c "
-          unset -f -- '${THE_TOOL}'
-          . ~/.bash_profile; declare -F -- '${THE_TOOL}'
-        " &>/dev/null; then
-          {
-            grep -q '.\+' ~/.bash_profile 2>/dev/null && echo
-            printf -- '%s\n' \
-              'if [ -f ~/.bashrc ]; then' \
-              '  . ~/.bashrc' \
-              'fi'
-          } | (
-            set -x; umask 0077; tee -a ~/.bash_profile >/dev/null
-          ) || return
-
-          changed=true
-        fi
-      elif ! /usr/bin/env bash -i -c "
-        unset -f -- '${THE_TOOL}'
-        . ~/.profile; declare -F -- '${THE_TOOL}'
-      " &>/dev/null; then
-        {
-          grep -q '.\+' ~/.profile 2>/dev/null && echo
-          # shellcheck disable=SC2016
-          printf -- '%s\n' \
-            'if [ -n "$BASH_VERSION" ]; then' \
-            '  if [ -f ~/.bashrc ]; then' \
-            '    . ~/.bashrc' \
-            '  fi' \
-            'fi'
-        } | (
-          set -x; umask 0077; tee -a ~/.profile >/dev/null
-        ) || return
-
-        changed=true
-      fi
-    elif [[ $(id -u) -eq 0 ]]; then
-      local result; result="$(
-        su -l "${user}" -s /bin/bash -c "$(declare -f); ${THE_LIB} ${FUNCNAME[0]}"
-      )" || return
-
-      [ "${result}" = 'done' ] && changed=true
-    else
-      echo "Can't init for '${user}' without root privileges" >&2
-      return 1
-    fi
-
-    if ${changed}; then
-      echo "done"
-    else
-      echo "unchanged"
-    fi
   }
 
   "${@}"
