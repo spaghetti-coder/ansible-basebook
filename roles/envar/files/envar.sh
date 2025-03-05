@@ -13,17 +13,18 @@ _envar_lib() (
   local DEMO_FILE="${GLOBAL_DIR}/demo.skip.sh"
   local DEMO_DESK_FILE="${GLOBAL_DIR}/demo-desk.skip.sh"
 
+  # Special marker for gen_* functions that allows skipping some code
+  # blocks when running outside of envar function
+  local RUN_CONTEXT_ENVAR_zWilsdFI8I=true  # <- Ensure some unique var name
+
   req()     { printf -- '%s' "${ENVAR_REQ}${ENVAR_REQ:+$'\n'}"; }
   loaded()  { printf -- '%s' "${ENVAR_LOADED}${ENVAR_LOADED:+$'\n'}"; }
   desks()   { printf -- '%s' "${ENVAR_DESKS}${ENVAR_DESKS:+$'\n'}"; }
 
   gen_loader() {
-    local gen_code_zWilsdFI8I=true
-
-    ${gen_code_zWilsdFI8I:-false} && {
+    ${RUN_CONTEXT_ENVAR_zWilsdFI8I:-false} && {
       declare -f "${FUNCNAME[0]}" \
       | tail -n +2 `# <- Remove function haeder` \
-      | sed '/gen_code_zWilsdFI8I[=]/d' `# <- Remove marker that launched this 'if'` \
       | sed -e 's#{{\s*GLOBAL_DIR\s*}}#'"${GLOBAL_DIR}"'#g' \
             -e 's#{{\s*USER_DIR_SUFFIX\s*}}#'"${USER_DIR_SUFFIX}"'#g' \
             -e 's#{{\s*IGNORE_GLOBAL_FILE\s*}}#'"${IGNORE_GLOBAL_FILE}"'#g' \
@@ -122,10 +123,8 @@ _envar_lib() (
 
   # shellcheck disable=SC2120
   gen_entrypoint() {
-    local gen_code_wy8q9BxRkQ=true
-
-    ${gen_code_wy8q9BxRkQ:-false} && {
-      declare -f "${FUNCNAME[0]}" | tail -n +2 | sed '/gen_code_wy8q9BxRkQ[=]/d'
+    ${RUN_CONTEXT_ENVAR_zWilsdFI8I:-false} && {
+      declare -f "${FUNCNAME[0]}" | tail -n +2
       return
     }
 
@@ -369,16 +368,16 @@ envar() {
 
   local the_lib=_envar_lib
   declare -a IMPORTED=(
+    # Action functions
+    loaded
+    desks
+    req
     # Service functions
     gen_entrypoint
     gen_loader
     # Setup functions
     install
     init
-    # Action functions
-    loaded
-    desks
-    req
   )
 
   if [[ "${arg}" =~ ^(-\?|-h|--help)$ ]]; then
@@ -401,6 +400,5 @@ envar() {
   echo "Envar: Invalid command '${arg}'" >&2
   return 1
 }
-
 
 eval "$(envar gen_entrypoint)"

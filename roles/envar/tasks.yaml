@@ -1,0 +1,16 @@
+---
+- name: Create installer directory
+  ansible.builtin.file:
+    state: directory
+    path: "{{ envar_installer_path | dirname }}"
+  register: envar_installer
+
+- name: Create installer
+  ansible.builtin.copy:
+    src: envar.sh
+    dest: "{{ envar_installer_path }}"
+    mode: '0755'
+
+- name: Mark done
+  ansible.builtin.set_fact:
+    _envar_done: true
