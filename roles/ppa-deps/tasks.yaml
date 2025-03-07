@@ -11,7 +11,3 @@
       - ca-certificates
       - gpg
   become: true
-
-- name: Mark done
-  ansible.builtin.set_fact:
-    _ppa_deps_done: true

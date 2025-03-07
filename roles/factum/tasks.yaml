@@ -17,7 +17,3 @@
   ansible.builtin.include_tasks:
     file: ubuntu-codename.yaml
   when: factum_os_like in ['ubuntu']
-
-- name: Mark done
-  ansible.builtin.set_fact:
-    _factum_done: true

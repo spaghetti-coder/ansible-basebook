@@ -39,7 +39,3 @@
 
 - name: Reset connection to apply groups
   ansible.builtin.meta: reset_connection
-
-- name: Mark done
-  ansible.builtin.set_fact:
-    _docker_done: true

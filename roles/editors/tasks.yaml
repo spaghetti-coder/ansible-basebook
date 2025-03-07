@@ -12,7 +12,3 @@
   ansible.builtin.package:
     name: "{{ editors_packages }}"
   become: true
-
-- name: Mark done
-  ansible.builtin.set_fact:
-    _editors_done: true

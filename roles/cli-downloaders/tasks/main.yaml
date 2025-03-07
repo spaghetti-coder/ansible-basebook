@@ -5,3 +5,7 @@
   when:
     - not (_cli_downloaders_done | default(false))
     - cli_downloaders_packages | length > 0
+
+- name: Mark done
+  ansible.builtin.set_fact:
+    _cli_downloaders_done: true

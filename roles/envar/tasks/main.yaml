@@ -7,3 +7,7 @@
   when: |
     not (_envar_done | default(false))
     or (envar_users_left | length) > 0
+
+- name: Mark done
+  ansible.builtin.set_fact:
+    _envar_done: true

@@ -28,7 +28,3 @@
   loop: "{{ envar_users_left }}"
   loop_control:
     loop_var: user
-
-- name: Mark done
-  ansible.builtin.set_fact:
-    _envar_done: true

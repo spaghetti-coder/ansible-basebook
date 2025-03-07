@@ -5,3 +5,7 @@
   when:
     - not (_editors_done | default(false))
     - editors_packages | length > 0
+
+- name: Mark done
+  ansible.builtin.set_fact:
+    _editors_done: true

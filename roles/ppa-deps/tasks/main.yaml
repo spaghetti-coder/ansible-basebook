@@ -5,3 +5,7 @@
   when:
     - not (_ppa_deps_done | default(false))
     - factum_os_like in ['debian', 'ubuntu']
+
+- name: Mark done
+  ansible.builtin.set_fact:
+    _ppa_deps_done: true

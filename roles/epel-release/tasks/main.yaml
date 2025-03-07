@@ -5,3 +5,7 @@
   when:
     - not (_epel_release_done | default(false))
     - factum_os_like in ['redhat', 'centos']
+
+- name: Mark done
+  ansible.builtin.set_fact:
+    _epel_release_done: true

@@ -14,7 +14,3 @@
       ansible.builtin.dnf:
         name: "{{ package }}"
         # disable_gpg_check: true
-
-- name: Mark done
-  ansible.builtin.set_fact:
-    _epel_release_done: true
