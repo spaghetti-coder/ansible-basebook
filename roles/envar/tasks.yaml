@@ -22,7 +22,7 @@
         - envar_configuration_result.rc == 0
         - envar_configuration_result.stdout | lower == 'done'
 
-- name: Setup user
+- name: Setup users
   ansible.builtin.include_tasks:
     file: setup-user.yaml
   loop: "{{ envar_users_left }}"

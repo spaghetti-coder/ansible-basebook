@@ -6,29 +6,37 @@ _envar_complete() {
 
   # shellcheck disable=SC2086
   if [ ${COMP_CWORD} -eq 1 ]; then
-    declare -a finder=(find -L -- . -maxdepth 1 -mindepth 1)
-    local files; files+="$(
-      {
-        "${finder[@]}" '(' -type f -and -name '*.sh' ')' 2>/dev/null \
-        | cut -d'/' -f2- | sort -n \
-        | while read -r l; do
-          # https://stackoverflow.com/a/5608358
-          [ -d "$(realpath -- "${l}" 2>/dev/null)" ] && { printf -- '%s/\n' "${l}"; continue; }
-          printf -- '%s\n' "${l}"
-        done
-      }; {
-        "${finder[@]}" -type d \
-        | cut -d'/' -f2- | sort -n \
-        | while read -r l; do
-          # https://stackoverflow.com/a/5608358
-          [ -d "$(realpath -- "${l}" 2>/dev/null)" ] && { printf -- '%s/\n' "${l}"; continue; }
-          printf -- '%s\n' "${l}"
-        done
-      }
-    )"
+    # # TODO: fix issue with spaces in path
+    # # https://stackoverflow.com/a/5608358 - BusyBox printf doesn't support '%q'
+    # local files; files="$(
+    #   local path="${current}"
+    #   declare -a trim_filter=(sed -e 's/^\.\///')
+    #   [[ "${path}" == './'* ]] && trim_filter=(cat)
+
+    #   if [ -z "${path}" ] || [ -d "$(realpath -- "${path}" 2>/dev/null)" ]; then
+    #     declare -a finder=(find -L -- "${path:-.}" -maxdepth 1 -mindepth 1)
+
+    #     {
+    #       "${finder[@]}" -type f -and '(' -name '*.sh' -o -name '*.env' ')' 2>/dev/null \
+    #       | sort -n
+    #       "${finder[@]}" -type d -exec printf -- '%s/\n' {} \; 2>/dev/null | sort -n
+    #     } | "${trim_filter[@]}"
+    #   elif ls -- "${path}"* &>/dev/null; then
+    #     declare -a lister=(ls -1 -A -p)
+
+    #     {
+    #       # https://askubuntu.com/a/811236
+    #       "${lister[@]}" -- "${path}"* 2>/dev/null | grep -v '\/$' | grep -e '\.sh$' -e '\.env$'
+    #       "${lister[@]}" -d -- "${path}"* 2>/dev/null | grep '\/$'
+    #     } | "${trim_filter[@]}"
+    #   fi
+    # )"
+
+    # # shellcheck disable=SC2207
+    # COMPREPLY=($(compgen -W "loaded desks req${files:+ }${files}" -- "${current}"))
 
     # shellcheck disable=SC2207
-    COMPREPLY=($(compgen -W "loaded desks req${files:+ }${files}" -- "${current}"))
+    COMPREPLY=($(compgen -W "loaded desks req" -- "${current}"))
   fi
 }
 
@@ -46,7 +54,7 @@ _envar_lib() (
   local GLOBAL_DIR="/etc/${THE_TOOL}"
   local USER_DIR_SUFFIX=".${THE_TOOL}.d"
   local IGNORE_GLOBAL_FILE="${USER_DIR_SUFFIX}/_global.skip.sh"
-  local IGNORE_SUFFIX_FILE="${USER_DIR_SUFFIX}/_suffix.skip.sh"
+  local IGNORE_PS1_SUFFIX_FILE="${USER_DIR_SUFFIX}/_ps1-suffix.skip.sh"
   local DEMO_FILE="${GLOBAL_DIR}/demo.skip.sh"
   local DEMO_DESK_FILE="${GLOBAL_DIR}/demo-desk.skip.sh"
 
@@ -204,74 +212,85 @@ _envar_lib() (
 
   gen_init() {
     [ "${FUNCNAME[0]}" = gen_init ] && {
-      declare -f "${FUNCNAME[0]}" | sed -e '/{/,$!d' -e '1s/.*{/{/'
+      declare -f "${FUNCNAME[0]}" | sed -e '/{/,$!d' -e '1s/.*{/{/' \
+      | sed -e 's#{{\s*GLOBAL_DIR\s*}}#'"${GLOBAL_DIR}"'#g' \
+            -e 's#{{\s*USER_DIR_SUFFIX\s*}}#'"${USER_DIR_SUFFIX}"'#g'
       return
     }
 
     if (return 0 2>/dev/null); then
-      eval "$(ENVAR_CONTEXT_SCRIPT=true envar gen-loader)"
+      ENVAR_LOADED=""
+      ENVAR_REQ=""
+
+      eval "$(envar gen-env-loader '{{ GLOBAL_DIR }}')"
+      eval "$(envar gen-env-loader ~/'{{ USER_DIR_SUFFIX }}')"
+      eval "$(envar gen-desk-loader)"
       eval "$(declare -f _envar_complete)"
-      complete -o nosort -o nospace -o default -F _envar_complete envar 2>/dev/null
+      # complete -o nosort -o nospace -o default -F _envar_complete envar 2>/dev/null
+      complete -o nosort -o default -F _envar_complete envar 2>/dev/null
     else
       ENVAR_CONTEXT_SCRIPT=true envar "${@}"
     fi
   }
 
-  gen_loader() {
-    [ "${FUNCNAME[0]}" = gen_loader ] && {
+  gen_env_loader() {
+    [ "${FUNCNAME[0]}" = gen_env_loader ] && {
+      local env_dir="${1}"
+
       declare -f "${FUNCNAME[0]}" | sed -e '/{/,$!d' -e '1s/.*{/{/' `# <- Extract function body` \
       | sed -e 's#{{\s*GLOBAL_DIR\s*}}#'"${GLOBAL_DIR}"'#g' \
-            -e 's#{{\s*USER_DIR_SUFFIX\s*}}#'"${USER_DIR_SUFFIX}"'#g' \
-            -e 's#{{\s*IGNORE_GLOBAL_FILE\s*}}#'"${IGNORE_GLOBAL_FILE}"'#g' \
-            -e 's#{{\s*IGNORE_SUFFIX_FILE\s*}}#'"${IGNORE_SUFFIX_FILE}"'#g'
+            -e 's#{{\s*ENV_DIR\s*}}#'"${env_dir}"'#g' \
+            -e 's#{{\s*IGNORE_GLOBAL_FILE\s*}}#'"${IGNORE_GLOBAL_FILE}"'#g'
       return
     }
 
-    ENVAR_LOADED=""
-    ENVAR_REQ=""
+    declare envar_files_Ur6tbG; {
+      # Load environments
 
-    # Load global environments
-    # shellcheck disable=SC2030
-    _envar_globalls="$(
-      GLOBAL_DIR='{{ GLOBAL_DIR }}'
-      IGNORE_GLOBAL_FILE='{{ IGNORE_GLOBAL_FILE }}'
-      [ -r "${GLOBAL_DIR}" ] && ! [ -r ~/"${IGNORE_GLOBAL_FILE}" ] || exit
+      env_dir_Ur6tbG='{{ ENV_DIR }}'
 
-      find -L "${GLOBAL_DIR}" -maxdepth 1 -type f `# -readable # <- Not supported by BusyBox find` \
-        '(' -name '*.sh' -not -name '*.skip.sh' ')' \
-        -o '(' -name '*.env' -not -name '*.skip.env' ')' \
-        | sort -n | grep '.'
-    )" && while read -r _envar_file; do
-      [ -r "${_envar_file}" ] || continue
-      unset _envar_globalls
-      ENVAR_REQ+="${ENVAR_REQ:+$'\n'}${_envar_file}"
+      # shellcheck disable=SC2030
+      envar_files_Ur6tbG="$(
+        GLOBAL_DIR='{{ GLOBAL_DIR }}'
+        IGNORE_GLOBAL_FILE='{{ IGNORE_GLOBAL_FILE }}'
 
-      # shellcheck disable=SC1090
-      . "${_envar_file}"
-      ENVAR_LOADED+="${ENVAR_LOADED:+$'\n'}${_envar_file}"
-    done <<< "${_envar_globalls}"
-    unset _envar_globalls
+        [ -r "${env_dir_Ur6tbG}" ] || exit
+        [ -d "$(realpath -- "${env_dir_Ur6tbG}" 2>/dev/null)" ] || exit
+        [ "${env_dir_Ur6tbG}" = "${GLOBAL_DIR}" ] && [ -e ~/"${IGNORE_GLOBAL_FILE}" ] && exit 1
 
-    # Load local environments
-    # shellcheck disable=SC2030
-    _envar_locals="$(
-      USER_DIR_SUFFIX='{{ USER_DIR_SUFFIX }}'
+        find -L -- "${env_dir_Ur6tbG}" -maxdepth 1 -type f `# -readable # <- Not supported by BusyBox find` \
+          '(' -name '*.sh' -not -name '*.skip.sh' ')' \
+          -o '(' -name '*.env' -not -name '*.skip.env' ')' \
+          | sort -n | grep '.'
+      )" && while read -r envar_file_Ur6tbG; do
+        if ! [ -r "${envar_file_Ur6tbG}" ]; then
+          [ -O "${env_dir_Ur6tbG}" ] && { # <- If owned by me, it's no good that can't read it
+            ENVAR_REQ+="${ENVAR_REQ:+$'\n'}${envar_file_Ur6tbG}"
+            echo "Warning: can't open '${envar_file_Ur6tbG}'" >&2
+          }
 
-      [ -r ~/"${USER_DIR_SUFFIX}" ] || exit
+          continue
+        fi
 
-      find -L ~/"${USER_DIR_SUFFIX}" -maxdepth 1 -type f \
-        '(' -name '*.sh' -not -name '*.skip.sh' ')' \
-        -o '(' -name '*.env' -not -name '*.skip.env' ')' \
-        | sort -n | grep '.'
-    )" && while read -r _envar_file; do
-      ENVAR_REQ+="${ENVAR_REQ:+$'\n'}${_envar_file}"
-      [ -r "${_envar_file}" ] || { echo "Warning: can't open '${_envar_file}'" >&2; continue; }
+        ENVAR_REQ+="${ENVAR_REQ:+$'\n'}${envar_file_Ur6tbG}"
 
-      # shellcheck disable=SC1090
-      . "${_envar_file}"
-      ENVAR_LOADED+="${ENVAR_LOADED:+$'\n'}${_envar_file}"
-    done <<< "${_envar_locals}"
-    unset _envar_locals
+        # shellcheck disable=SC1090
+        . "${envar_file_Ur6tbG}"
+        ENVAR_LOADED+="${ENVAR_LOADED:+$'\n'}${envar_file_Ur6tbG}"
+      done <<< "${envar_files_Ur6tbG}"
+
+      unset env_dir_Ur6tbG envar_files_Ur6tbG envar_file_Ur6tbG
+    }
+
+    true # <- No negative impact if last command exit code is non-0
+  }
+
+  gen_desk_loader() {
+    [ "${FUNCNAME[0]}" = gen_desk_loader ] && {
+      declare -f "${FUNCNAME[0]}" | sed -e '/{/,$!d' -e '1s/.*{/{/' `# <- Extract function body` \
+      | sed -e 's#{{\s*IGNORE_PS1_SUFFIX_FILE\s*}}#'"${IGNORE_PS1_SUFFIX_FILE}"'#g'
+      return
+    }
 
     if [ -n "${ENVAR_DESK}" ]; then
       ENVAR_DESK="$(
@@ -309,16 +328,16 @@ _envar_lib() (
       | cat -n | sort -k2 -k1n | uniq -f1 | sort -nk1,1 | cut -f2- | tac
     )"
 
-    unset ENVAR_DESK
+    unset ENVAR_DESK _envar_desk
 
     # Set PS1
     ENVAR_PS1_ORIGIN="${ENVAR_PS1_ORIGIN-${PS1}}"
     if [ -n "${_envar_last_desk}" ]; then
       PS1="$(
         # shellcheck disable=SC2030
-        IGNORE_SUFFIX_FILE='{{ IGNORE_SUFFIX_FILE }}'
+        IGNORE_PS1_SUFFIX_FILE='{{ IGNORE_PS1_SUFFIX_FILE }}'
 
-        if ! [ -e ~/"${IGNORE_SUFFIX_FILE}" ]; then
+        if ! [ -e ~/"${IGNORE_PS1_SUFFIX_FILE}" ]; then
           # shellcheck disable=SC1090
           if (unset -f envar_ps1_suffix; . "${_envar_last_desk}" &>/dev/null; declare -F envar_ps1_suffix &>/dev/null); then
             declare candidate; candidate="$(envar_ps1_suffix | grep '.\+')" && {
@@ -345,6 +364,8 @@ _envar_lib() (
 
       unset _envar_last_desk
     fi
+
+    true # <- No negative impact if last command exit code is non-0
   }
 
   #
@@ -400,7 +421,8 @@ _envar_lib() (
        ,
         # For internal usage
         ${THE_TOOL} gen-init
-        ${THE_TOOL} gen-loader
+        ${THE_TOOL} gen-env-loader ENV_DIR  # <- Allows joining more ENV_DIRs
+        ${THE_TOOL} gen-desk-loader
       "
     fi
 
@@ -460,7 +482,7 @@ _envar_lib() (
       #
       # ```
       # # Usage demo:
-      # touch ~/'"${IGNORE_SUFFIX_FILE}"'   # <- Disable PS1 suffixing
+      # touch ~/'"${IGNORE_PS1_SUFFIX_FILE}"'   # <- Disable PS1 suffixing
       # '"${THE_TOOL} ${DEMO_DESK_FILE}"'       # <- Load the current desk
       # ```
      ,
@@ -475,11 +497,16 @@ _envar_lib() (
   # Helper functions
   #
 
+  declare -a GLOBAL_FUNCS=(
+    _envar_complete
+    "${THE_LIB}"
+    "${THE_TOOL}"
+  )
+
   # shellcheck disable=SC2016
   make_bin_file_code() {
     echo '#!/usr/bin/env bash'; echo
-    declare -f -- "${THE_LIB}"; echo
-    declare -f -- "${THE_TOOL}"; echo
+    declare -f -- "${GLOBAL_FUNCS[@]}"; echo
     echo 'eval "$(ENVAR_CONTEXT_SCRIPT=true '"${THE_TOOL}"' gen-init)"'
   }
 
@@ -488,7 +515,7 @@ _envar_lib() (
 
     # shellcheck disable=SC1090
     cmp -- <(make_bin_file_code) <(
-      unset -f "${THE_LIB}" "${THE_TOOL}" &>/dev/null; . "${file}" &>/dev/null
+      unset -f -- "${GLOBAL_FUNCS[@]}" &>/dev/null; . "${file}" &>/dev/null
       make_bin_file_code
     ) &>/dev/null
   }
@@ -496,8 +523,8 @@ _envar_lib() (
   file_sources_tool() {
     local file="${1}"
     /usr/bin/env bash -i -c "
-      unset -f -- '${THE_TOOL}' '${THE_LIB}'
-      . '${file}'; declare -F -- '${THE_TOOL}' '${THE_LIB}'
+      unset -f -- ${GLOBAL_FUNCS[*]}
+      . '${file}'; declare -F -- ${GLOBAL_FUNCS[*]}
     " &>/dev/null
   }
 
@@ -518,7 +545,8 @@ envar() {
     [setup]=user_setup
     # Service functions
     [gen-init]=gen_init
-    [gen-loader]=gen_loader
+    [gen-env-loader]=gen_env_loader
+    [gen-desk-loader]=gen_desk_loader
   )
 
   ! ${ENVAR_CONTEXT_SCRIPT} && PROXY_MAP+=(
@@ -536,7 +564,7 @@ envar() {
     "${the_lib}" "${PROXY_MAP[${arg}]}" "${@}"; return
   }
 
-  if grep -q -- '\.\(sh\|env\)$' <<< "${arg}"; then
+  if grep -q -- '\.\(sh\|env\)$' <<< "${arg}" && ! ${ENVAR_CONTEXT_SCRIPT}; then
     # shellcheck disable=SC2031
     ENVAR_DESKS="${ENVAR_DESKS}" ENVAR_DESK="${arg}" /usr/bin/env bash
     return
