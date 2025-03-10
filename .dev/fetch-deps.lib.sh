@@ -132,7 +132,7 @@ fetch_deps() {
     cp_base_scripts || return
     cp_books_files || return
 
-    .dev/build-sample-vars.sh
+    .dev/sample-vars.sh
   }
 
   main "${@}"

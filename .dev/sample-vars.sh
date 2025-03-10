@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-build_sample_vars() (
+sample_vars() (
   local PROJ_DIR; PROJ_DIR="$(dirname -- "${BASH_SOURCE[0]}")/.."
   local DEST_FILE=sample/group_vars/all.yaml
   declare -a ROLES_DIRS=(./roles)
@@ -22,7 +22,7 @@ build_sample_vars() (
   trap_help() {
     ${ARGS[is_help]} || return
 
-    local self; self=build-sample-vars.sh
+    local self; self=sample-vars.sh
     grep -q '.\+' -- "${0}" && self="$(basename -- "${0}")"
 
     _text_fmt "
@@ -120,4 +120,4 @@ build_sample_vars() (
   main "${@}"
 )
 
-(return 2>/dev/null) || build_sample_vars "${@}"
+(return 2>/dev/null) || sample_vars "${@}"

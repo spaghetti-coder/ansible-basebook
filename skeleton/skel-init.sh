@@ -99,7 +99,7 @@ skeleton() (
     done
 
     # Cleanup sample vars
-    .dev/build-sample-vars.sh
+    .dev/sample-vars.sh
   }
 
   copy_mapped() {

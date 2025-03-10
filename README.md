@@ -109,7 +109,7 @@ Ansible managed nodes:
 
 1.  If your playbook development is under git source control run `.dev/dev-init.sh` script to ensure hooks.
 2.  See `docker` and `demo-noapp` roles for demos on how to write roles.
-3.  Run `.dev/build-sample-args.sh` when completed to add configurations to sample vars file.
+3.  Run `.dev/sample-vars.sh` when completed to add configurations to sample vars file.
 
 ### `factum` role
 

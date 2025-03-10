@@ -15,7 +15,7 @@ ansible_password: changeme  # <- Not required for ssh-key-based connection
 ansible_become_password: changeme
 
 # All before this ROLES_CONF_TS4LE64m91 marker stays
-# unchanged by build-sample-vars.sh script
+# unchanged by sample-vars.sh script
 #################### {{ ROLES_CONF_TS4LE64m91 }} ####################
 
 ###
