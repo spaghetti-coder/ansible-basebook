@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 skeleton() (
-  local BASEBOOK_TGZ_URL='https://github.com/spaghetti-coder/ansible-basebook/archive/{{ BRANCH }}.tar.gz'
+  local BOOKSHELF_TGZ_URL='https://github.com/spaghetti-coder/ansible-bookshelf/archive/{{ BRANCH }}.tar.gz'
   declare -a COPY_PATHS=(
     ./.dev
     ./.editorconfig
@@ -72,14 +72,14 @@ skeleton() (
 
     local branch_repl; branch_repl="$(sed -e 's/[\/&]/\\&/g' <<< "${ARGS[branch]}")"
     # shellcheck disable=SC2001
-    BASEBOOK_TGZ_URL="$(sed -e 's/{{\s*BRANCH\s*}}/'"${branch_repl}"'/' <<< "${BASEBOOK_TGZ_URL}")"
+    BOOKSHELF_TGZ_URL="$(sed -e 's/{{\s*BRANCH\s*}}/'"${branch_repl}"'/' <<< "${BOOKSHELF_TGZ_URL}")"
   }
 
   pull_base() {
     local dest="${1}"
 
     ( set -x
-      curl -fsSL -- "${BASEBOOK_TGZ_URL}" \
+      curl -fsSL -- "${BOOKSHELF_TGZ_URL}" \
       | tar --strip-components 1 -xzf - -C "${dest}"
     )
   }

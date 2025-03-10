@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 fetch_deps() {
-  local BASEBOOK_TGZ_URL='https://github.com/spaghetti-coder/ansible-basebook/archive/{{ BRANCH }}.tar.gz'
+  local BOOKSHELF_TGZ_URL='https://github.com/spaghetti-coder/ansible-bookshelf/archive/{{ BRANCH }}.tar.gz'
   local SELF_DIR; SELF_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
   local PROJ_DIR; PROJ_DIR="${SELF_DIR}/.."
 
@@ -35,7 +35,7 @@ fetch_deps() {
     grep -q '.\+' -- "${0}" && self="$(basename -- "${0}")"
 
     _text_fmt "
-      Pull dependencies from deps file and update helper scripts from basebook.
+      Pull dependencies from deps file and update helper scripts from bookshelf.
       By default reads deps.ini file from the project root directory
 
       Usage:
@@ -44,15 +44,15 @@ fetch_deps() {
 
       Demo:
       ====
-      ${self} ./deps2.ini   # <- 'deps2.ini' file, '${DEFAULTS[base_branch]}' basebook git branch
-      ${self} -b dev        # <- Use basebook 'dev' git branch
+      ${self} ./deps2.ini   # <- 'deps2.ini' file, '${DEFAULTS[base_branch]}' bookshelf git branch
+      ${self} -b dev        # <- Use bookshelf 'dev' git branch
     "
   }
 
   init() {
     local branch_repl; branch_repl="$(sed -e 's/[\/&]/\\&/g' <<< "${ARGS[base_branch]}")"
     # shellcheck disable=SC2001
-    BASEBOOK_TGZ_URL="$(sed -e 's/{{\s*BRANCH\s*}}/'"${branch_repl}"'/' <<< "${BASEBOOK_TGZ_URL}")"
+    BOOKSHELF_TGZ_URL="$(sed -e 's/{{\s*BRANCH\s*}}/'"${branch_repl}"'/' <<< "${BOOKSHELF_TGZ_URL}")"
 
     if [[ -n "${ARGS[deps_file]+x}" ]]; then
       cat -- "${ARGS[deps_file]}" >/dev/null || return
@@ -105,7 +105,7 @@ fetch_deps() {
   cp_base_scripts() {
     local tmp_base; tmp_base="$(mktemp -d)" || return
     ( set -x
-      curl -fsSL -- "${BASEBOOK_TGZ_URL}" \
+      curl -fsSL -- "${BOOKSHELF_TGZ_URL}" \
       | tar --strip-components 1 -xzf - -C "${tmp_base}" \
       && rm -- "${tmp_base}/.dev/fetch-deps.sh" \
       && cp -rf -- "${tmp_base}"/{.dev,bin} .

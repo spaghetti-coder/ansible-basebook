@@ -1,6 +1,6 @@
 <a id="top"></a>
 
-# Ansible BaseBook
+# Ansible Bookshelf
 
 This a basic playbook and roles collection.
 
@@ -151,7 +151,7 @@ In order to create a new project with the same concept as this one, issue
 
 ```sh
 bash -- <(
-  curl -fsSL https://github.com/spaghetti-coder/ansible-basebook/raw/master/skeleton/skel-init.sh
+  curl -fsSL https://github.com/spaghetti-coder/ansible-bookshelf/raw/master/skeleton/skel-init.sh
 ) ./my/project/directory
 ```
 
@@ -162,7 +162,7 @@ And than review [README.md](./skeleton/README.md) file in the generated director
 TODO
 
 ```sh
-curl -fsSL https://github.com/spaghetti-coder/ansible-basebook/raw/master/roles/envar/files/envar.sh | sudo bash -s -- install
+curl -fsSL https://github.com/spaghetti-coder/ansible-bookshelf/raw/master/roles/envar/files/envar.sh | sudo bash -s -- install
 ```
 
 [To top]
