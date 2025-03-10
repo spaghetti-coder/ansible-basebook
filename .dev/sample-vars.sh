@@ -79,16 +79,20 @@ sample_vars() (
 
   _patch_dest_file() {
     local vars_text="${1}"
-    vars_text="${vars_text:+$'\n'${vars_text}$'\n'}"
+    vars_text+="${vars_text:+$'\n'}"
 
     local head; head="$(
-      sed '1,/^\s*#\+\s*{{\s*ROLES_CONF_TS4LE64m91\s*}}\s*\(#.*\)\?$/!d' -- "${DEST_FILE}"
-    )" || return
+      sed '1,/^\s*#\+\s*{{\s*ROLES_CONF_TS4LE64m91\s*}}\s*\(#.*\)\?$/!d' -- "${DEST_FILE}" 2>/dev/null
+    )" && head+=$'\n\n'
 
+    local dest_dir; dest_dir="$(dirname -- "${DEST_FILE}")"
     {
-      printf -- '%s\n' "${head}"
-      printf -- '%s' "${vars_text}"
-    } | { set -x; tee -- "${DEST_FILE}" >/dev/null; }
+      printf -- '%s' "${head}" "${vars_text}"
+    } | (
+      set -x
+      mkdir -p -- "${dest_dir}" \
+      && tee -- "${DEST_FILE}" >/dev/null
+    )
   }
 
   _text_fmt() {
