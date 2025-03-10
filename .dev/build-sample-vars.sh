@@ -3,7 +3,7 @@
 build_sample_vars() (
   local PROJ_DIR; PROJ_DIR="$(dirname -- "${BASH_SOURCE[0]}")/.."
   local DEST_FILE=sample/group_vars/all.yaml
-  declare -a ROLES_PATHS=(. ./requirements)
+  declare -a ROLES_DIRS=(./roles)
 
   declare -A ARGS=(
     [is_help]=false
@@ -35,11 +35,12 @@ build_sample_vars() (
   }
 
   _get_default_files() {
+    # find ./roles -mindepth 4 -maxdepth 4 -type f -path '*/defaults/main.yaml'
     local append result
     local dir; for dir in "${@}"; do
       append="$(
-        find "${dir}" -maxdepth 4 -type f \
-          -path "${dir}/roles/*/defaults/main.yaml" \
+        find -- "${dir}" -mindepth 4 -maxdepth 4 \
+          -type f -path '*/defaults/main.yaml' \
         | sort -n | grep '.\+'
       )" || continue
 
@@ -80,11 +81,14 @@ build_sample_vars() (
     local vars_text="${1}"
     vars_text="${vars_text:+$'\n'${vars_text}$'\n'}"
 
-    ( set -o pipefail
-      sed '1,/^\s*#\+\s*{{\s*ROLES_CONF_TS4LE64m91\s*}}\s*\(#.*\)\?$/!d' -- "${DEST_FILE}" \
-      | { cat; printf -- '%s' "${vars_text}"; } \
-      | { set -x; tee -- "${DEST_FILE}" >/dev/null; }
-    )
+    local head; head="$(
+      sed '1,/^\s*#\+\s*{{\s*ROLES_CONF_TS4LE64m91\s*}}\s*\(#.*\)\?$/!d' -- "${DEST_FILE}"
+    )" || return
+
+    {
+      printf -- '%s\n' "${head}"
+      printf -- '%s' "${vars_text}"
+    } | { set -x; tee -- "${DEST_FILE}" >/dev/null; }
   }
 
   _text_fmt() {
@@ -102,7 +106,7 @@ build_sample_vars() (
     cd -- "${PROJ_DIR}" || return
 
     declare -a default_files tmp_list
-    local tmp; tmp="$(_get_default_files "${ROLES_PATHS[@]}")"
+    local tmp; tmp="$(_get_default_files "${ROLES_DIRS[@]}")"
 
     [ -n "${tmp}" ] && mapfile -t tmp_list <<< "${tmp}"
     default_files+=("${tmp_list[@]}")
