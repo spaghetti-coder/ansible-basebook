@@ -63,7 +63,7 @@ fetch_deps() {
   }
 
   cp_books_files() {
-    local reqs_dir=requirements
+    local reqs_dir=vendor
 
     local deps; ! deps="$(
       # Remove all blank and comment lines

@@ -8,7 +8,7 @@ skeleton() (
     ./.gitignore
     ./ansible.cfg
     ./bin
-    ./requirements/roles
+    ./vendor/roles
     ./sample
   )
   declare -A COPY_MAP=(

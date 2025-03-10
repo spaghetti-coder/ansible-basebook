@@ -80,7 +80,7 @@ Ansible managed nodes:
 ├── ansible.cfg
 ├── bin                 # <- Playbook convenience scripts
 ├── playbook.yaml
-├── requirements        # <- Required roles and collections
+├── vendor              # <- Required roles and collections
 ├── requirements.yaml   # <- Required roles and collections declaretions
 ├── roles
 ├── sample    # <- Configuration samples
