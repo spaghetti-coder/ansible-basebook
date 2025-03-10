@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
 sample_vars() (
+  declare -a ROLES_PATH=("${@}")
+
   local PROJ_DIR; PROJ_DIR="$(dirname -- "${BASH_SOURCE[0]}")/.."
   local DEST_FILE=sample/group_vars/all.yaml
-  declare -a ROLES_DIRS=(./roles)
 
   declare -A ARGS=(
     [is_help]=false
@@ -35,11 +36,10 @@ sample_vars() (
   }
 
   _get_default_files() {
-    # find ./roles -mindepth 4 -maxdepth 4 -type f -path '*/defaults/main.yaml'
     local append result
     local dir; for dir in "${@}"; do
       append="$(
-        find -- "${dir}" -mindepth 4 -maxdepth 4 \
+        find -- "${dir}" -mindepth 3 -maxdepth 3 \
           -type f -path '*/defaults/main.yaml' \
         | sort -n | grep '.\+'
       )" || continue
@@ -106,7 +106,7 @@ sample_vars() (
     cd -- "${PROJ_DIR}" || return
 
     declare -a default_files tmp_list
-    local tmp; tmp="$(_get_default_files "${ROLES_DIRS[@]}")"
+    local tmp; tmp="$(_get_default_files "${ROLES_PATH[@]}")"
 
     [ -n "${tmp}" ] && mapfile -t tmp_list <<< "${tmp}"
     default_files+=("${tmp_list[@]}")
@@ -120,4 +120,4 @@ sample_vars() (
   main "${@}"
 )
 
-(return 2>/dev/null) || sample_vars "${@}"
+(return 2>/dev/null) || sample_vars ./roles/base ./roles/service
